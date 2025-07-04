@@ -19,3 +19,23 @@ export const checkUserPermissions = async (listId: string, userEmail: string) =>
     isOwner
   };
 };
+
+// rules_version = '2';
+// service cloud.firestore {
+//   match /databases/{database}/documents {
+//     match /todoLists/{listId} {
+//       allow read: if request.auth != null && 
+//                    resource.data.ownerId == request.auth.token.email;
+      
+//       allow create: if request.auth != null;
+      
+//       allow update, delete: if request.auth != null && 
+//                             resource.data.ownerId == request.auth.token.email;
+      
+//       match /tasks/{taskId} {
+//         allow read, write: if request.auth != null && 
+//                            get(/databases/$(database)/documents/todoLists/$(listId)).data.ownerId == request.auth.token.email;
+//       }
+//     }
+//   }
+// }
