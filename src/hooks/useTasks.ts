@@ -9,64 +9,139 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  serverTimestamp,
+  getDoc
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { checkUserPermissions } from "../utils/permissions";
 
 export interface Task {
   id: string;
-  todoListId: string;
   title: string;
   description: string;
   completed: boolean;
   createdAt: any;
+  updatedAt?: any;
 }
 
-export function useTasks(todoListId: string | null) {
+export function useTasks(todoListId: string | null, currentUserEmail?: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Підписка на зміни завдань
   useEffect(() => {
-    if (!todoListId) {
+    if (!todoListId || !currentUserEmail) {
       setTasks([]);
+      setLoading(false);
       return;
     }
-    const tasksRef = collection(db, "tasks");
-    const q = query(
-      tasksRef,
-      where("todoListId", "==", todoListId),
-      orderBy("createdAt", "desc")
+
+    setLoading(true);
+    const tasksRef = collection(db, "todoLists", todoListId, "tasks");
+    const q = query(tasksRef, orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(
+      q,
+      async (snapshot) => {
+        try {
+          // Додаткова перевірка прав на читання
+          const { canRead } = await checkUserPermissions(todoListId, currentUserEmail);
+          if (!canRead) {
+            throw new Error("You don't have read permissions");
+          }
+
+          const tasksData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Task[];
+          setTasks(tasksData);
+          setError(null);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Permission denied");
+          setTasks([]);
+        } finally {
+          setLoading(false);
+        }
+      },
+      (err) => {
+        setError(err.message);
+        setLoading(false);
+      }
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Task)
-      );
-      setTasks(data);
-    });
+
     return () => unsubscribe();
-  }, [todoListId]);
+  }, [todoListId, currentUserEmail]);
 
-  const addTask = async (
-    todoListId: string,
-    title: string,
-    description: string
-  ) => {
-    await addDoc(collection(db, "tasks"), {
-      todoListId,
-      title,
-      description,
-      completed: false,
-      createdAt: new Date(),
-    });
+  // Додавання завдання з перевіркою прав
+  const addTask = async (title: string, description: string) => {
+    if (!todoListId || !currentUserEmail) throw new Error("Missing required data");
+
+    try {
+      const { canEdit } = await checkUserPermissions(todoListId, currentUserEmail);
+      if (!canEdit) throw new Error("You don't have permission to add tasks");
+
+      const tasksRef = collection(db, "todoLists", todoListId, "tasks");
+      await addDoc(tasksRef, {
+        title,
+        description,
+        completed: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("Failed to add task:", err);
+      throw err;
+    }
   };
 
-  const updateTask = async (id: string, data: Partial<Task>) => {
-    const docRef = doc(db, "tasks", id);
-    await updateDoc(docRef, data);
+  // Оновлення завдання з перевіркою прав
+  const updateTask = async (taskId: string, updates: Partial<Task>) => {
+    if (!todoListId || !currentUserEmail) throw new Error("Missing required data");
+
+    try {
+      const { canEdit } = await checkUserPermissions(todoListId, currentUserEmail);
+      if (!canEdit) throw new Error("You don't have permission to edit tasks");
+
+      const taskRef = doc(db, "todoLists", todoListId, "tasks", taskId);
+      await updateDoc(taskRef, {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("Failed to update task:", err);
+      throw err;
+    }
   };
 
-  const deleteTask = async (id: string) => {
-    const docRef = doc(db, "tasks", id);
-    await deleteDoc(docRef);
+  // Видалення завдання з перевіркою прав
+  const deleteTask = async (taskId: string) => {
+    if (!todoListId || !currentUserEmail) throw new Error("Missing required data");
+
+    try {
+      const { canEdit } = await checkUserPermissions(todoListId, currentUserEmail);
+      if (!canEdit) throw new Error("You don't have permission to delete tasks");
+
+      const taskRef = doc(db, "todoLists", todoListId, "tasks", taskId);
+      await deleteDoc(taskRef);
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+      throw err;
+    }
   };
 
-  return { tasks, addTask, updateTask, deleteTask };
+  // Перемикання статусу завдання
+  const toggleTaskCompletion = async (taskId: string, completed: boolean) => {
+    return updateTask(taskId, { completed: !completed });
+  };
+
+  return {
+    tasks,
+    loading,
+    error,
+    addTask,
+    updateTask,
+    deleteTask,
+    toggleTaskCompletion,
+  };
 }
