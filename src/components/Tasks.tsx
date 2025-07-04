@@ -115,7 +115,7 @@ const Tasks: React.FC = () => {
         <h2 className="text-2xl font-bold">{list.title}</h2>
         <button
           onClick={() => navigate("/dashboard")}
-          className="text-blue-600 hover:text-blue-800"
+          className="text-blue-600 hover:text-blue-800 cursor-pointer" 
         >
           ← Back to Dashboard
         </button>
@@ -125,19 +125,19 @@ const Tasks: React.FC = () => {
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => setFilter("all")}
-          className={`px-3 py-1 rounded ${filter === "all" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          className={`px-3 py-1 rounded cursor-pointer ${filter === "all" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
         >
           All
         </button>
         <button
           onClick={() => setFilter("active")}
-          className={`px-3 py-1 rounded ${filter === "active" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          className={`px-3 py-1 rounded cursor-pointer ${filter === "active" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
         >
           Active
         </button>
         <button
           onClick={() => setFilter("completed")}
-          className={`px-3 py-1 rounded ${filter === "completed" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+          className={`px-3 py-1 rounded cursor-pointer ${filter === "completed" ? "bg-blue-600 text-white" : "bg-gray-200"}`}
         >
           Completed
         </button>
@@ -166,13 +166,13 @@ const Tasks: React.FC = () => {
             <button
               onClick={handleAddTask}
               disabled={!newTaskTitle.trim()}
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 cursor-pointer"
             >
               Add Task
             </button>
             <button
               onClick={() => setUiState("view")}
-              className="px-4 py-2 border rounded"
+              className="px-4 py-2 border rounded cursor-pointer"
             >
               Cancel
             </button>
@@ -215,13 +215,13 @@ const Tasks: React.FC = () => {
                     <button
                       onClick={handleSaveEdit}
                       disabled={!editTitle.trim()}
-                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+                      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 cursor-pointer"
                     >
                       Save
                     </button>
                     <button
                       onClick={() => setEditingTaskId(null)}
-                      className="px-3 py-1 border rounded"
+                      className="px-3 py-1 border rounded cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -234,7 +234,7 @@ const Tasks: React.FC = () => {
                       type="checkbox"
                       checked={task.completed}
                       onChange={() => handleToggleComplete(task.id, task.completed)}
-                      className="mt-1"
+                      className="mt-1 cursor-pointer"
                       disabled={!currentPermissions.canEdit}
                     />
                     <div className="flex-1">
@@ -259,13 +259,13 @@ const Tasks: React.FC = () => {
                             setEditDescription(task.description);
                             setEditingTaskId(task.id);
                           }}
-                          className="text-sm text-yellow-600 hover:text-yellow-800"
+                          className="text-sm text-yellow-600 hover:text-yellow-800 cursor-pointer"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDeleteTask(task.id)}
-                          className="text-sm text-red-600 hover:text-red-800"
+                          className="text-sm text-red-600 hover:text-red-800 cursor-pointer"
                         >
                           Delete
                         </button>
@@ -283,7 +283,7 @@ const Tasks: React.FC = () => {
       {currentPermissions.canEdit && uiState === "view" && (
         <button
           onClick={() => setUiState("add")}
-          className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 cursor-pointer"
         >
           + Add New Task
         </button>

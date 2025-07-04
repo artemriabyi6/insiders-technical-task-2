@@ -8,75 +8,114 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  QuerySnapshot,
+  serverTimestamp
 } from "firebase/firestore";
-import type  {DocumentData} from "firebase/firestore";
 import { db } from "../firebase";
 
 export interface TodoList {
   id: string;
   title: string;
   ownerId: string;
-  collaborators: { email: string; role: string }[];
+  collaborators: { email: string; role: 'admin' | 'viewer' }[];
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export function useTodoLists(userEmail: string | null) {
   const [lists, setLists] = useState<TodoList[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userEmail) {
       setLists([]);
+      setLoading(false);
       return;
     }
 
+    setLoading(true);
     const listsRef = collection(db, "todoLists");
-
-    const qOwner = query(listsRef, where("ownerId", "==", userEmail));
-    const qCollaborator = query(
+    const q = query(
       listsRef,
-      where("collaborators", "array-contains", { email: userEmail })
+      where("ownerId", "==", userEmail)
     );
 
-    const handleSnapshot = (snapshot: QuerySnapshot<DocumentData>) => {
-      const data = snapshot.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as TodoList)
-      );
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const listsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as TodoList[];
+        
+        // Сортування на клієнті за датою створення (новіші перші)
+        const sortedLists = [...listsData].sort((a, b) => {
+          const dateA = a.createdAt?.toDate()?.getTime() || 0;
+          const dateB = b.createdAt?.toDate()?.getTime() || 0;
+          return dateB - dateA;
+        });
 
-      setLists((prev) => {
-        const combined = [...prev, ...data];
-        const unique = combined.filter(
-          (list, index, self) => self.findIndex((l) => l.id === list.id) === index
-        );
-        return unique;
-      });
-    };
+        setLists(sortedLists);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        setError("Помилка завантаження: " + err.message);
+        setLoading(false);
+      }
+    );
 
-    const unsub1 = onSnapshot(qOwner, handleSnapshot);
-    const unsub2 = onSnapshot(qCollaborator, handleSnapshot);
-
-    return () => {
-      unsub1();
-      unsub2();
-    };
+    return () => unsubscribe();
   }, [userEmail]);
 
-  async function createList(title: string, ownerId: string) {
-    await addDoc(collection(db, "todoLists"), {
-      title,
-      ownerId,
-      collaborators: [],
-    });
-  }
+  const createList = async (title: string, ownerEmail: string) => {
+    try {
+      const newList = {
+        title,
+        ownerId: ownerEmail,
+        collaborators: [],
+        createdAt: serverTimestamp(),
+      };
+      await addDoc(collection(db, "todoLists"), newList);
+    } catch (err) {
+      console.error("Помилка створення списку:", err);
+      throw err;
+    }
+  };
 
-  async function updateList(id: string, title: string) {
-    const ref = doc(db, "todoLists", id);
-    await updateDoc(ref, { title });
-  }
+  const updateList = async (id: string, title: string) => {
+    try {
+      const ref = doc(db, "todoLists", id);
+      await updateDoc(ref, {
+        title,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("Помилка оновлення списку:", err);
+      throw err;
+    }
+  };
 
-  async function deleteList(id: string) {
-    const ref = doc(db, "todoLists", id);
-    await deleteDoc(ref);
-  }
+  const deleteList = async (id: string) => {
+    try {
+      const ref = doc(db, "todoLists", id);
+      // Оптимістичне оновлення
+      setLists(prev => prev.filter(list => list.id !== id));
+      await deleteDoc(ref);
+    } catch (err) {
+      // Відкат у разі помилки
+      setLists(prev => [...prev, prev.find(list => list.id === id)!]);
+      console.error("Помилка видалення списку:", err);
+      throw err;
+    }
+  };
 
-  return { lists, createList, updateList, deleteList };
+  return {
+    lists,
+    loading,
+    error,
+    createList,
+    updateList,
+    deleteList,
+  };
 }
